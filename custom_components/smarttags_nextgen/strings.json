@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Link Samsung Account",
+        "description": "{qr_code_instructions}",
+        "data": {
+          "token": "Auth Token"
+        }
+      }
+    }
+  }
+}

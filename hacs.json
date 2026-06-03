@@ -1,0 +1,8 @@
+{
+  "name": "SmartThings Find NextGen",
+  "render_readme": true,
+  "file_name": "smarttags_nextgen",
+  "iot_class": "cloud_polling",
+  "domain": "smarttags_nextgen",
+  "homeassistant": "2024.1.0"
+}
