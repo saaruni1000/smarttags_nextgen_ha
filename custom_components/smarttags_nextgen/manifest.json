@@ -7,5 +7,5 @@
   "documentation": "https://github.com/yourusername/HA-SmartTags-NextGen",
   "iot_class": "cloud_polling",
   "requirements": ["aiohttp", "qrcode"],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }

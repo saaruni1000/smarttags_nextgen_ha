@@ -17,34 +17,63 @@ class SmartTagCoordinator(DataUpdateCoordinator):
             always_update=False
         )
         self.api = SmartTagsAPI(async_get_clientsession(hass), cookie_string, csrf_token)
-        self.last_known_timestamp = "20260603193003" 
+        self.last_known_timestamps = {}
 
     async def _async_update_data(self):
-        """Fetch and normalize data from the custom endpoint."""
-        device_id = "759751163" 
+        """Fetch device list, filter tags, and update locations safely with tracking logs."""
+        devices = await self.api.get_devices()
+        if devices is None:
+            raise UpdateFailed("Failed to communicate with Samsung Device List endpoint.")
+
+        tags = [d for d in devices if d.get("deviceType") == "TAG"]
+        # LOGGING: Filtered target devices
+        _LOGGER.info("SmartThings Find: Identified %s tracking tags to process", len(tags))
         
-        operations = await self.api.get_device_locations(device_id, self.last_known_timestamp)
-        if not operations:
-            raise UpdateFailed("No operational tracking data returned from Samsung")
+        old_data = self.data if self.data else {}
+        normalized_data = {}
 
-        normalized_data = {
-            "device_id": device_id,
-            "latitude": None,
-            "longitude": None,
-            "battery": None,
-            "location_type": None
-        }
+        for tag in tags:
+            device_id = tag.get("dvceID")
+            name = tag.get("nickName") or tag.get("modelName", "SmartTag")
+            
+            if device_id not in self.last_known_timestamps:
+                self.last_known_timestamps[device_id] = "20260603193003"
 
-        for oprn in operations:
-            if oprn.get("oprnType") == "LOCATION":
-                normalized_data["latitude"] = float(oprn.get("latitude"))
-                normalized_data["longitude"] = float(oprn.get("longitude"))
-                normalized_data["location_type"] = oprn.get("locationType")
-                
-                if "extra" in oprn and "gpsUtcDt" in oprn["extra"]:
-                    self.last_known_timestamp = oprn["extra"]["gpsUtcDt"]
-                
-            elif oprn.get("oprnType") == "CHECK_CONNECTION":
-                normalized_data["battery"] = oprn.get("battery")
+            operations = await self.api.get_device_locations(device_id, self.last_known_timestamps[device_id])
+            old_tag_data = old_data.get(device_id, {})
+
+            tag_data = {
+                "device_id": device_id,
+                "name": name,
+                "latitude": old_tag_data.get("latitude"),
+                "longitude": old_tag_data.get("longitude"),
+                "battery": old_tag_data.get("battery"),
+                "location_type": old_tag_data.get("location_type")
+            }
+
+            if operations:
+                for oprn in operations:
+                    if oprn.get("oprnType") == "LOCATION":
+                        tag_data["latitude"] = float(oprn.get("latitude"))
+                        tag_data["longitude"] = float(oprn.get("longitude"))
+                        tag_data["location_type"] = oprn.get("locationType")
+                        
+                        if "extra" in oprn and "gpsUtcDt" in oprn["extra"]:
+                            self.last_known_timestamps[device_id] = oprn["extra"]["gpsUtcDt"]
+                            
+                    elif oprn.get("oprnType") == "CHECK_CONNECTION":
+                        tag_data["battery"] = oprn.get("battery")
+            
+            # LOGGING: Clear breakdown of exactly what data block was parsed for this tag
+            _LOGGER.info(
+                "SmartThings Find Tracker Status Update -> Name: %s | ID: %s | Lat: %s | Lon: %s | Battery: %s",
+                tag_data["name"],
+                tag_data["device_id"],
+                tag_data["latitude"],
+                tag_data["longitude"],
+                tag_data["battery"]
+            )
+                        
+            normalized_data[device_id] = tag_data
 
         return normalized_data

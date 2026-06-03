@@ -3,48 +3,55 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up the SmartTag device tracker platform."""
+    """Set up the SmartTag device tracker platform for multiple tags."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([SmartTagTracker(coordinator)])
+    
+    entities = []
+    # Loop through the dictionary keys (device IDs) the coordinator built
+    for device_id, tag_data in coordinator.data.items():
+        name = tag_data.get("name", "SmartTag")
+        entities.append(SmartTagTracker(coordinator, device_id, name))
+        
+    async_add_entities(entities)
 
 class SmartTagTracker(CoordinatorEntity, TrackerEntity):
-    """Representation of a Samsung SmartTag on the HA Map."""
+    """Representation of a specific Samsung SmartTag on the HA Map."""
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator, device_id, name):
         super().__init__(coordinator)
-        self._attr_unique_id = f"smarttag_{self.coordinator.data.get('device_id')}"
-        self._attr_name = "My SmartTag"
+        self.device_id = device_id
+        self._attr_unique_id = f"smarttag_{device_id}"
+        self._attr_name = name
+
+    # Helper property to quickly grab this specific tag's data block
+    @property
+    def tag_data(self):
+        return self.coordinator.data.get(self.device_id, {})
 
     @property
     def latitude(self):
-        """Return latitude value from the coordinator."""
-        return self.coordinator.data.get("latitude")
+        return self.tag_data.get("latitude")
 
     @property
     def longitude(self):
-        """Return longitude value from the coordinator."""
-        return self.coordinator.data.get("longitude")
+        return self.tag_data.get("longitude")
 
     @property
     def source_type(self):
-        """Identify state values as explicit GPS coordinates."""
         return "gps"
 
     @property
     def battery_level(self):
-        """Translate text status matrices into a readable percentage."""
         battery_map = {"HIGH": 100, "MEDIUM": 50, "LOW": 10}
-        current_battery = self.coordinator.data.get("battery", "UNKNOWN")
+        current_battery = self.tag_data.get("battery", "UNKNOWN")
         return battery_map.get(current_battery)
 
     @property
     def icon(self):
-        """Set fallback rendering design icon."""
         return "mdi:tag-location"
         
     @property
     def extra_state_attributes(self):
-        """Pass additional variables into entity states."""
         return {
-            "location_type": self.coordinator.data.get("location_type")
+            "location_type": self.tag_data.get("location_type")
         }
