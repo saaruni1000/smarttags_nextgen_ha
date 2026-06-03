@@ -8,7 +8,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 class SmartTagCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, cookie_string, csrf_token):
+    def __init__(self, hass, cookie_string):
         super().__init__(
             hass,
             _LOGGER,
@@ -16,17 +16,23 @@ class SmartTagCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=5),
             always_update=False
         )
-        self.api = SmartTagsAPI(async_get_clientsession(hass), cookie_string, csrf_token)
+        # Note: No longer passing a hardcoded csrf_token here
+        self.api = SmartTagsAPI(async_get_clientsession(hass), cookie_string)
         self.last_known_timestamps = {}
 
     async def _async_update_data(self):
-        """Fetch device list, filter tags, and update locations safely with tracking logs."""
+        """Automatically refresh the CSRF shield, fetch device list, and synchronize states."""
+        # 1. Dynamically capture the fresh token first
+        token_success = await self.api.refresh_csrf_token()
+        if not token_success:
+            raise UpdateFailed("Failed to dynamically acquire operational CSRF token from Samsung session.")
+
+        # 2. Proceed with standard multi-device tracking loop
         devices = await self.api.get_devices()
         if devices is None:
             raise UpdateFailed("Failed to communicate with Samsung Device List endpoint.")
 
         tags = [d for d in devices if d.get("deviceType") == "TAG"]
-        # LOGGING: Filtered target devices
         _LOGGER.info("SmartThings Find: Identified %s tracking tags to process", len(tags))
         
         old_data = self.data if self.data else {}
@@ -64,7 +70,6 @@ class SmartTagCoordinator(DataUpdateCoordinator):
                     elif oprn.get("oprnType") == "CHECK_CONNECTION":
                         tag_data["battery"] = oprn.get("battery")
             
-            # LOGGING: Clear breakdown of exactly what data block was parsed for this tag
             _LOGGER.info(
                 "SmartThings Find Tracker Status Update -> Name: %s | ID: %s | Lat: %s | Lon: %s | Battery: %s",
                 tag_data["name"],

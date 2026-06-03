@@ -9,10 +9,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Extract data from the config flow schema keys
     cookie_string = entry.data.get("token")  
-    csrf_token = entry.data.get("csrf_token") 
+    # csrf_token = entry.data.get("csrf_token") 
     
     # Pass credentials directly to the data coordinator
-    coordinator = SmartTagCoordinator(hass, cookie_string, csrf_token)
+    coordinator = SmartTagCoordinator(hass, cookie_string)
     
     await coordinator.async_config_entry_first_refresh()
 
