@@ -1,11 +1,11 @@
 {
   "domain": "smarttags_nextgen",
   "name": "SmartThings Find NextGen",
-  "codeowners": ["@yourusername"],
+  "codeowners": ["@saaruni1000"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/yourusername/HA-SmartTags-NextGen",
+  "documentation": "https://github.com/saaruni1000/smarttags_nextgen_ha",
   "iot_class": "cloud_polling",
-  "requirements": ["aiohttp", "qrcode"],
+  "requirements": ["aiohttp"],
   "version": "0.1.2"
 }
