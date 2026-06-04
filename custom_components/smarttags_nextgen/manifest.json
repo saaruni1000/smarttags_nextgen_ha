@@ -5,6 +5,7 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/saaruni1000/smarttags_nextgen_ha",
+  "issue_tracker": "https://github.com/saaruni1000/smarttags_nextgen_ha/issues",
   "iot_class": "cloud_polling",
   "requirements": ["aiohttp"],
   "version": "0.1.4"

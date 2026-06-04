@@ -1,9 +1,4 @@
 {
   "name": "SmartThings Find NextGen",
-  "content_in_root": false,
-  "zip_release": false,
-  "filename": "manifest.json",
-  "domains": ["smarttags_nextgen"],
-  "iot_class": "cloud_polling",
   "homeassistant": "2024.1.0"
 }
