@@ -1,4 +1,6 @@
-# smarttags_nextgen_ha
+# SmartThings Find NextGen
+This is a spiritual successor to https://github.com/Vedeneb/HA-SmartThings-Find as I really wanted that feature.
+
 Viewing smart tags locations on Home Assistant
 
 This project currently only allows to see the locations of the smart tags and not control them in any way. I don't currently plan to try and add these things.
