@@ -8,7 +8,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 class SmartTagCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, cookie_string):
+    def __init__(self, hass, jsession_id):
         super().__init__(
             hass,
             _LOGGER,
@@ -16,18 +16,15 @@ class SmartTagCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=5),
             always_update=False
         )
-        # Note: No longer passing a hardcoded csrf_token here
-        self.api = SmartTagsAPI(async_get_clientsession(hass), cookie_string)
+        self.api = SmartTagsAPI(async_get_clientsession(hass), jsession_id)
         self.last_known_timestamps = {}
 
     async def _async_update_data(self):
-        """Automatically refresh the CSRF shield, fetch device list, and synchronize states."""
-        # 1. Dynamically capture the fresh token first
+        """Refresh CSRF, fetch device list, initialize new tags, and synchronize states."""
         token_success = await self.api.refresh_csrf_token()
         if not token_success:
-            raise UpdateFailed("Failed to dynamically acquire operational CSRF token from Samsung session.")
+            raise UpdateFailed("Failed to dynamically acquire operational CSRF token. Verify JSESSIONID.")
 
-        # 2. Proceed with standard multi-device tracking loop
         devices = await self.api.get_devices()
         if devices is None:
             raise UpdateFailed("Failed to communicate with Samsung Device List endpoint.")
@@ -41,12 +38,17 @@ class SmartTagCoordinator(DataUpdateCoordinator):
         for tag in tags:
             device_id = tag.get("dvceID")
             name = tag.get("nickName") or tag.get("modelName", "SmartTag")
-            
-            if device_id not in self.last_known_timestamps:
-                self.last_known_timestamps[device_id] = "20260603193003"
-
-            operations = await self.api.get_device_locations(device_id, self.last_known_timestamps[device_id])
             old_tag_data = old_data.get(device_id, {})
+            
+            operations = None
+
+            # 1. Dynamic Timestamp Initialization
+            if device_id not in self.last_known_timestamps:
+                _LOGGER.info("Fetching initial baseline data for %s", name)
+                operations = await self.api.set_last_select(device_id)
+            else:
+                # 2. Standard incremental polling using the known timestamp
+                operations = await self.api.get_device_locations(device_id, self.last_known_timestamps[device_id])
 
             tag_data = {
                 "device_id": device_id,
@@ -57,26 +59,34 @@ class SmartTagCoordinator(DataUpdateCoordinator):
                 "location_type": old_tag_data.get("location_type")
             }
 
+            # 3. Parse Operations (Now handling OFFLINE_LOC matrices)
             if operations:
                 for oprn in operations:
-                    if oprn.get("oprnType") == "LOCATION":
+                    oprn_type = oprn.get("oprnType")
+                    
+                    if oprn_type in ["LOCATION", "OFFLINE_LOC"]:
+                        # Extract the location data
                         tag_data["latitude"] = float(oprn.get("latitude"))
                         tag_data["longitude"] = float(oprn.get("longitude"))
-                        tag_data["location_type"] = oprn.get("locationType")
                         
+                        # Assign location type based on the operation matrix
+                        if oprn_type == "OFFLINE_LOC":
+                            tag_data["location_type"] = "offline"
+                        else:
+                            tag_data["location_type"] = oprn.get("locationType", "gps")
+                        
+                        # Extract the critical dynamic timestamp to use on the next 5-minute poll
                         if "extra" in oprn and "gpsUtcDt" in oprn["extra"]:
                             self.last_known_timestamps[device_id] = oprn["extra"]["gpsUtcDt"]
+                        elif "encLocation" in oprn and "gpsUtcDt" in oprn["encLocation"]:
+                            self.last_known_timestamps[device_id] = oprn["encLocation"]["gpsUtcDt"]
                             
-                    elif oprn.get("oprnType") == "CHECK_CONNECTION":
+                    elif oprn_type == "CHECK_CONNECTION":
                         tag_data["battery"] = oprn.get("battery")
             
             _LOGGER.info(
-                "SmartThings Find Tracker Status Update -> Name: %s | ID: %s | Lat: %s | Lon: %s | Battery: %s",
-                tag_data["name"],
-                tag_data["device_id"],
-                tag_data["latitude"],
-                tag_data["longitude"],
-                tag_data["battery"]
+                "Tracker Update -> Name: %s | Lat: %s | Lon: %s | Timestamp: %s",
+                tag_data["name"], tag_data["latitude"], tag_data["longitude"], self.last_known_timestamps.get(device_id, "Unknown")
             )
                         
             normalized_data[device_id] = tag_data

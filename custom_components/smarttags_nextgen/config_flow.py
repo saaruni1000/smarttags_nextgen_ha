@@ -7,13 +7,13 @@ class SmartTagsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Handle the initial step where the user pastes their cookie string."""
+        """Handle the initial step where the user submits the session identifier."""
         if user_input is not None:
             return self.async_create_entry(title="Samsung SmartTags", data=user_input)
 
-        # Simplified schema: Only requiring the session cookie string
+        # Prompt for the exact structural token needed
         data_schema = vol.Schema({
-            vol.Required("token"): str
+            vol.Required("jsession_id", description={"suggested_value": "3AA5...fmm-prd"}): str
         })
 
         return self.async_show_form(

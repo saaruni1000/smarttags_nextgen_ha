@@ -1,19 +1,18 @@
+import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from .const import DOMAIN, PLATFORMS
 from .coordinator import SmartTagCoordinator
 
+_LOGGER = logging.getLogger(__name__)
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SmartTags from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     
-    # Extract data from the config flow schema keys
-    cookie_string = entry.data.get("token")  
-    # csrf_token = entry.data.get("csrf_token") 
-    
-    # Pass credentials directly to the data coordinator
-    coordinator = SmartTagCoordinator(hass, cookie_string)
-    
+    jsession_id = entry.data.get("jsession_id")  
+    coordinator = SmartTagCoordinator(hass, jsession_id)
+
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = coordinator

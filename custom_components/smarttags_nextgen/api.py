@@ -5,16 +5,16 @@ from typing import Dict, Any, Optional, List
 _LOGGER = logging.getLogger(__name__)
 
 class SmartTagsAPI:
-    def __init__(self, session: aiohttp.ClientSession, cookie_string: str):
+    def __init__(self, session: aiohttp.ClientSession, jsession_id: str):
         self.session = session
-        self.cookie_string = cookie_string
-        self.csrf_token: Optional[str] = None  # Will be populated dynamically
+        self.jsession_id = jsession_id
+        self.csrf_token: Optional[str] = None
         
-        # Base headers without the CSRF token
+        # Construct the Cookie header dynamically using only the JSESSIONID
         self.headers = {
             "accept": "application/json, text/plain, */*",
             "accept-language": "en-US,en;q=0.9,he;q=0.8,ja;q=0.7",
-            "Cookie": self.cookie_string,
+            "Cookie": f"JSESSIONID={self.jsession_id}",
             "origin": "https://smartthingsfind.samsung.com",
             "priority": "u=1, i",
             "referer": "https://smartthingsfind.samsung.com/",
@@ -27,13 +27,34 @@ class SmartTagsAPI:
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
         }
 
+
+    async def set_last_select(self, device_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Fetch the absolute latest baseline state and timestamp for a newly initialized device."""
+        if not self.csrf_token:
+            return None
+
+        url = f"https://smartthingsfind.samsung.com/device/setLastSelect.do?_csrf={self.csrf_token}"
+        headers = {**self.headers, "content-type": "application/json"}
+        payload = {"dvceId": device_id}
+
+        try:
+            async with self.session.post(url, headers=headers, json=payload) as resp:
+                if resp.status != 200:
+                    _LOGGER.error("API setLastSelect failed for device %s with status: %s", device_id, resp.status)
+                    return None
+                    
+                data = await resp.json()
+                return data.get("operation", [])
+        except Exception as e:
+            _LOGGER.error("Network error during setLastSelect baseline fetch: %s", e)
+            return None
+
+
     async def refresh_csrf_token(self) -> bool:
-        """Fetch a fresh CSRF token from the chkLogin endpoint using existing cookies."""
+        """Fetch a fresh CSRF token from the chkLogin endpoint."""
         url = "https://smartthingsfind.samsung.com/chkLogin.do"
         try:
-            # Replicating the verified check sequence
             async with self.session.get(url, headers=self.headers) as resp:
-                # Check for the custom header returned by Samsung
                 csrf = resp.headers.get("_csrf") or resp.headers.get("X-CSRF-TOKEN")
                 
                 if csrf:
@@ -41,11 +62,12 @@ class SmartTagsAPI:
                     _LOGGER.info("SmartThings Find: Successfully refreshed CSRF token dynamically")
                     return True
                 
-                _LOGGER.error("SmartThings Find: chkLogin responded but '_csrf' header was missing")
+                _LOGGER.error("SmartThings Find: chkLogin responded but '_csrf' header was missing. Session might be invalid.")
                 return False
         except Exception as e:
             _LOGGER.error("Network error attempting to refresh CSRF token: %s", e)
             return False
+
 
     async def get_devices(self) -> Optional[List[Dict[str, Any]]]:
         """Fetch the list of all registered devices."""
@@ -54,8 +76,6 @@ class SmartTagsAPI:
             return None
 
         url = f"https://smartthingsfind.samsung.com/device/getDeviceList.do?_csrf={self.csrf_token}"
-        
-        # Inject content-type only for payload-bearing requests if needed
         headers = {**self.headers, "content-type": "application/json"}
         
         try:
