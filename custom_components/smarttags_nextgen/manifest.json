@@ -7,5 +7,5 @@
   "documentation": "https://github.com/saaruni1000/smarttags_nextgen_ha",
   "iot_class": "cloud_polling",
   "requirements": ["aiohttp"],
-  "version": "0.1.3"
+  "version": "0.1.4"
 }
