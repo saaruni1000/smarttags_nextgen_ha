@@ -42,17 +42,6 @@ If you prefer not to use HACS, you can install the integration files directly on
 6. Enter your JSESSIONID into Home Assistant.
 7. Enjoy :)
 
-## Debuging
-
-To enable debugging, you need to set the log level in `configuration.yaml`:
-
-```yaml
-logger:
-  default: info
-  logs:
-    custom_components.smartthings_find: debug
-```
-
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
