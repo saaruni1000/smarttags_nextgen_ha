@@ -62,6 +62,9 @@ class SmartTagsAPI:
                     _LOGGER.info("SmartThings Find: Successfully refreshed CSRF token dynamically")
                     return True
                 
+                data = await resp.json()
+                _LOGGER.error(f"Response recieved: headers: f{resp.headers} body: f{data}")
+
                 _LOGGER.error("SmartThings Find: chkLogin responded but '_csrf' header was missing. Session might be invalid.")
                 return False
         except Exception as e:
