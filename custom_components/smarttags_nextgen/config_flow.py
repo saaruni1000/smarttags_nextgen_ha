@@ -18,7 +18,10 @@ class SmartTagsConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema
+            data_schema=data_schema,
+            description_placeholders={
+                "url": "https://smartthingsfind.samsung.com/"
+            }
         )
 
     @staticmethod
@@ -56,5 +59,8 @@ class SmartTagsOptionsFlowHandler(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=options_schema
+            data_schema=options_schema,
+            description_placeholders={
+                "url": "https://smartthingsfind.samsung.com/"
+            }
         )

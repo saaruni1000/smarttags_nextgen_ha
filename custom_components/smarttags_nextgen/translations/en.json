@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Samsung SmartTags Setup",
-        "description": "Visit https://smartthingsfind.samsung.com/ and log in with your Samsung account. Then:\n\n1. Open Developer Tools in your browser (F12).\n2. Navigate to the Application/Storage tab.\n3. Copy the **JSESSIONID** value.\n\n*Note: Make sure to copy the one from `smartthingsfind.samsung.com` (you might have others from different domains).* \n\nPaste your token below:",
+        "description": "Visit [SmartThings Find]({url}) and log in with your Samsung account.\n\n1. Open Developer Tools in your browser (F12).\n2. Navigate to the Application/Storage tab.\n3. Copy the **JSESSIONID** value.\n\n*Note: Make sure to copy the one from `smartthingsfind.samsung.com` (you might have others from different domains).* \n\nPaste your token below:",
         "data": {
           "jsession_id": "JSESSIONID Token"
         }
@@ -14,7 +14,7 @@
     "step": {
       "init": {
         "title": "Update JSESSIONID",
-        "description": "If your session has expired or you are experiencing connection problems, you can update your token here.\n\nVisit https://smartthingsfind.samsung.com/ and log in with your Samsung account. Then:\n\n1. Open Developer Tools in your browser (F12).\n2. Navigate to the Application/Storage tab.\n3. Copy the **JSESSIONID** value.\n\n*Note: Make sure to copy the one from `smartthingsfind.samsung.com`.*",
+        "description": "If your session has expired or you are experiencing connection problems, you can update your token here.\n\nVisit [SmartThings Find]({url}) and log in with your Samsung account.\n\n1. Open Developer Tools in your browser (F12).\n2. Navigate to the Application/Storage tab.\n3. Copy the **JSESSIONID** value.\n\n*Note: Make sure to copy the one from `smartthingsfind.samsung.com`.*",
         "data": {
           "jsession_id": "JSESSIONID Token"
         }
