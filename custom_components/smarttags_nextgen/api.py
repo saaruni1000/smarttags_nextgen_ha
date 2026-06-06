@@ -1,5 +1,6 @@
 import aiohttp
 import logging
+import json
 from typing import Dict, Any, Optional, List
 
 _LOGGER = logging.getLogger(__name__)
@@ -9,7 +10,7 @@ class SmartTagsAPI:
         self.session = session
         self.jsession_id = jsession_id
         self.csrf_token: Optional[str] = None
-        
+    
         # Construct the Cookie header dynamically using only the JSESSIONID
         self.headers = {
             "accept": "application/json, text/plain, */*",
@@ -25,9 +26,9 @@ class SmartTagsAPI:
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
-            "x-fmm-origin": "prd-eu"
+            "x-fmm-origin": "prd-eu",  # format 1
+            "x-fmm-orgin": "prd-eu"    # format 2
         }
-
 
     async def set_last_select(self, device_id: str) -> Optional[List[Dict[str, Any]]]:
         """Fetch the absolute latest baseline state and timestamp for a newly initialized device."""
@@ -50,8 +51,7 @@ class SmartTagsAPI:
             _LOGGER.error("Network error during setLastSelect baseline fetch: %s", e)
             return None
 
-
-    async def refresh_csrf_token(self) -> bool:
+    async def refresh_csrf_token(self) -> bool:  
         """Fetch a fresh CSRF token from the chkLogin endpoint."""
         url = "https://smartthingsfind.samsung.com/chkLogin.do"
         try:
@@ -63,16 +63,24 @@ class SmartTagsAPI:
                     _LOGGER.info("SmartThings Find: Successfully refreshed CSRF token dynamically")
                     return True
                 
-                _LOGGER.error(f"Response recieved: headers: f{resp.headers}")
-                data = await resp.json()
-                _LOGGER.error(f"Response recieved: body: f{data}")
-
+                _LOGGER.error(f"Response received: headers: {resp.headers}")
+                
+                # check for contant
+                text_data = await resp.text()
+                if text_data and len(text_data) > 4:
+                    try:
+                        data = json.loads(text_data)
+                        _LOGGER.error(f"Response received: body: {data}")
+                    except Exception:
+                        _LOGGER.error(f"Response body is not a valid JSON string: {text_data}")
+                else:
+                    _LOGGER.error(f"Response body is empty or too short (Length: {len(text_data) if text_data else 0})")
+                
                 _LOGGER.error("SmartThings Find: chkLogin responded but '_csrf' header was missing. Session might be invalid.")
                 return False
         except Exception as e:
             _LOGGER.error("Network error attempting to refresh CSRF token: %s", e)
             return False
-
 
     async def get_devices(self) -> Optional[List[Dict[str, Any]]]:
         """Fetch the list of all registered devices."""
