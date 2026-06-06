@@ -1,4 +1,5 @@
 import logging
+import html
 from datetime import timedelta
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -37,7 +38,9 @@ class SmartTagCoordinator(DataUpdateCoordinator):
 
         for tag in tags:
             device_id = tag.get("dvceID")
-            name = tag.get("nickName") or tag.get("modelName", "SmartTag")
+            # _LOGGER.error("SMARTTAG RAW DATA: %s", tag)
+            raw_name = tag.get("modelName") or tag.get("nickName") or "SmartTag"
+            name = html.unescape(html.unescape(raw_name))
             old_tag_data = old_data.get(device_id, {})
             
             operations = None
