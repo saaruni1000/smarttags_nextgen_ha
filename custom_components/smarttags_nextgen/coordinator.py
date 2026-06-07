@@ -45,13 +45,9 @@ class SmartTagCoordinator(DataUpdateCoordinator):
             
             operations = None
 
-            # 1. Dynamic Timestamp Initialization
-            if device_id not in self.last_known_timestamps:
-                _LOGGER.info("Fetching initial baseline data for %s", name)
-                operations = await self.api.set_last_select(device_id)
-            else:
-                # 2. Standard incremental polling using the known timestamp
-                operations = await self.api.get_device_locations(device_id, self.last_known_timestamps[device_id])
+            # Force baseline fetch on every poll to bypass Samsung's static state cache
+            _LOGGER.info("Fetching fresh state updates for %s", name)
+            operations = await self.api.set_last_select(device_id)
 
             tag_data = {
                 "device_id": device_id,
