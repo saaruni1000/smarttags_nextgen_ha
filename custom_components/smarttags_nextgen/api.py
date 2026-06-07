@@ -1,18 +1,20 @@
 import aiohttp
 import logging
-import json
 from typing import Dict, Any, Optional, List
 
 _LOGGER = logging.getLogger(__name__)
 
 class SmartTagsAPI:
-    def __init__(self, session: aiohttp.ClientSession, jsession_id: str):
+    def __init__(self, session: aiohttp.ClientSession, jsession_id: str, region: str):
         self.session = session
         self.jsession_id = jsession_id
+        self.region = region  # Capture the region selected dynamically during config flow execution
         self.csrf_token: Optional[str] = None
-    
-        # Construct the Cookie header dynamically using only the JSESSIONID
-        self.headers = {
+
+    @property
+    def headers(self) -> Dict[str, str]:
+        """Dynamically build HTTP headers to ensure the current region is evaluated on every request."""
+        return {
             "accept": "application/json, text/plain, */*",
             "accept-language": "en-US,en;q=0.9,he;q=0.8,ja;q=0.7",
             "Cookie": f"JSESSIONID={self.jsession_id}",
@@ -26,55 +28,20 @@ class SmartTagsAPI:
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
-            "x-fmm-origin": "prd-eu",  # format 1
-            "x-fmm-orgin": "prd-eu"    # format 2
+            "x-fmm-origin": self.region,
+            "x-fmm-orgin": self.region  # Maintain the structural typo fallback as discovered natively
         }
 
-    async def set_last_select(self, device_id: str) -> Optional[List[Dict[str, Any]]]:
-        """Fetch the absolute latest baseline state and timestamp for a newly initialized device."""
-        if not self.csrf_token:
-            return None
-
-        url = f"https://smartthingsfind.samsung.com/device/setLastSelect.do?_csrf={self.csrf_token}"
-        headers = {**self.headers, "content-type": "application/json"}
-        payload = {"dvceId": device_id}
-
-        try:
-            async with self.session.post(url, headers=headers, json=payload) as resp:
-                if resp.status != 200:
-                    _LOGGER.error("API setLastSelect failed for device %s with status: %s", device_id, resp.status)
-                    return None
-                    
-                data = await resp.json()
-                return data.get("operation", [])
-        except Exception as e:
-            _LOGGER.error("Network error during setLastSelect baseline fetch: %s", e)
-            return None
-
-    async def refresh_csrf_token(self) -> bool:  
+    async def refresh_csrf_token(self) -> bool:
         """Fetch a fresh CSRF token from the chkLogin endpoint."""
         url = "https://smartthingsfind.samsung.com/chkLogin.do"
         try:
             async with self.session.get(url, headers=self.headers) as resp:
                 csrf = resp.headers.get("_csrf") or resp.headers.get("X-CSRF-TOKEN")
-                
                 if csrf:
                     self.csrf_token = csrf
                     _LOGGER.info("SmartThings Find: Successfully refreshed CSRF token dynamically")
                     return True
-                
-                _LOGGER.error(f"Response received: headers: {resp.headers}")
-                
-                # check for contant
-                text_data = await resp.text()
-                if text_data and len(text_data) > 4:
-                    try:
-                        data = json.loads(text_data)
-                        _LOGGER.error(f"Response received: body: {data}")
-                    except Exception:
-                        _LOGGER.error(f"Response body is not a valid JSON string: {text_data}")
-                else:
-                    _LOGGER.error(f"Response body is empty or too short (Length: {len(text_data) if text_data else 0})")
                 
                 _LOGGER.error("SmartThings Find: chkLogin responded but '_csrf' header was missing. Session might be invalid.")
                 return False
@@ -91,6 +58,10 @@ class SmartTagsAPI:
         url = f"https://smartthingsfind.samsung.com/device/getDeviceList.do?_csrf={self.csrf_token}"
         headers = {**self.headers, "content-type": "application/json"}
         
+        #-- check outgoing request ---
+        # _LOGGER.critical("QA DIAGNOSTIC - OUTGOING REQUEST HEADERS: %s", headers)
+        # -----------------------------------------------------
+
         try:
             async with self.session.post(url, headers=headers, json={}) as resp:
                 if resp.status != 200:
@@ -98,15 +69,35 @@ class SmartTagsAPI:
                     return None
                     
                 data = await resp.json()
-                device_list = data.get("deviceList", [])
-                _LOGGER.info("SmartThings Find: Found %s total devices in Samsung account", len(device_list))
-                return device_list
+                if data:
+                    device_list = data.get("deviceList", [])
+                    _LOGGER.info("SmartThings Find: Found %s total devices in Samsung account", len(device_list))
+                    return device_list
+                return None
         except Exception as e:
             _LOGGER.error("Network error fetching device list: %s", e)
             return None
 
+    async def set_last_select(self, device_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Fetch baseline state state updates for tracking entities."""
+        if not self.csrf_token:
+            return None
+
+        url = f"https://smartthingsfind.samsung.com/device/setLastSelect.do?_csrf={self.csrf_token}"
+        headers = {**self.headers, "content-type": "application/json"}
+        payload = {"dvceId": device_id}
+
+        try:
+            async with self.session.post(url, headers=headers, json=payload) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json()
+                return data.get("operation", []) if data else None
+        except Exception:
+            return None
+
     async def get_device_locations(self, device_id: str, latest_time: str) -> Optional[List[Dict[str, Any]]]:
-        """Fetch tracking matrices from Samsung."""
+        """Fetch live coordinate telemetry attributes."""
         if not self.csrf_token:
             return None
 
@@ -117,11 +108,8 @@ class SmartTagsAPI:
         try:
             async with self.session.post(url, headers=headers, json=payload) as resp:
                 if resp.status != 200:
-                    _LOGGER.error("API tracking failed for device %s with status: %s", device_id, resp.status)
                     return None
-                    
                 data = await resp.json()
-                return data.get("operation", [])
-        except Exception as e:
-            _LOGGER.error("Network execution error inside custom integration: %s", e)
+                return data.get("operation", []) if data else None
+        except Exception:
             return None
