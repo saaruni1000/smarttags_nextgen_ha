@@ -9,7 +9,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 class SmartTagCoordinator(DataUpdateCoordinator):
-    def __init__(self, hass, jsession_id):
+    def __init__(self, hass, jsession_id, region):
         super().__init__(
             hass,
             _LOGGER,
@@ -17,7 +17,8 @@ class SmartTagCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=5),
             always_update=False
         )
-        self.api = SmartTagsAPI(async_get_clientsession(hass), jsession_id)
+        # Transmitting the dynamic operational region variable natively into the API setup orchestrator
+        self.api = SmartTagsAPI(async_get_clientsession(hass), jsession_id, region)
         self.last_known_timestamps = {}
 
     async def _async_update_data(self):
@@ -38,7 +39,6 @@ class SmartTagCoordinator(DataUpdateCoordinator):
 
         for tag in tags:
             device_id = tag.get("dvceID")
-            # _LOGGER.error("SMARTTAG RAW DATA: %s", tag)
             raw_name = tag.get("modelName") or tag.get("nickName") or "SmartTag"
             name = html.unescape(html.unescape(raw_name))
             old_tag_data = old_data.get(device_id, {})
