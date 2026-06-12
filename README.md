@@ -18,7 +18,7 @@ Since this integration is not currently in the default HACS store, you can easil
 3. Paste the URL of this GitHub repository into the **Repository** box.
 4. For **Category**, select **Integration**.
 5. Click **Add**.
-6. Find the **Samsung SmartTags NextGen** integration in the list and click **Download**.
+6. Find the **SmartThings Find NextGen** integration in the list and click **Download**.
 7. Restart Home Assistant.
 
 ---
